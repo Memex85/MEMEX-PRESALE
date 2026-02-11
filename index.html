@@ -1,105 +1,101 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MEMEX Presale</title>
+// Live raised calc (incoming SOL) with caching (best effort)
+    // ======================
+    const CACHE_KEY = "memex_presale_cache_v5";
 
-  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    function loadCache(){
+      try{
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return { totalLamports: 0, seen: {}, lastUpdated: 0 };
+        const obj = JSON.parse(raw);
+        if (!obj || typeof obj.totalLamports !== "number") throw new Error("bad");
+        obj.seen = obj.seen || {};
+        return obj;
+      }catch{
+        return { totalLamports: 0, seen: {}, lastUpdated: 0 };
+      }
+    }
+    function saveCache(c){ localStorage.setItem(CACHE_KEY, JSON.stringify(c)); }
 
-  <style>
-    :root{
-      --bg0:#05060b; --bg1:#081426;
-      --card:rgba(10,16,30,.72);
-      --stroke:rgba(120,220,255,.16);
-      --neon:#00f5ff; --neon2:#ff4dff;
-      --lime:#34ff8b; --gold:#ffd166;
-      --text:#eaf6ff; --muted:rgba(234,246,255,.72);
-      --shadow: 0 18px 60px rgba(0,0,0,.55);
-      --radius:18px;
-      --danger:#ff4dff;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(900px 520px at 20% 20%, rgba(0,245,255,.14), transparent 55%),
-        radial-gradient(900px 520px at 80% 10%, rgba(255,77,255,.12), transparent 55%),
-        radial-gradient(1000px 650px at 50% 90%, rgba(52,255,139,.10), transparent 60%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
-      overflow-x:hidden;
-    }
-    .wrap{max-width:1120px; margin:22px auto 70px; padding:0 16px}
-    .topbar{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:18px}
-    .brand{display:flex; align-items:center; gap:12px}
-    .logo{
-      width:44px; height:44px; border-radius:999px;
-      background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.35), rgba(0,245,255,.22) 30%, rgba(255,77,255,.18) 65%, rgba(0,0,0,.2));
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow: 0 0 0 1px rgba(0,245,255,.10), 0 12px 30px rgba(0,0,0,.45);
-      overflow:hidden; display:grid; place-items:center; font-weight:950;
-    }
-    .name{font-weight:950; letter-spacing:.08em}
-    .tag{color:var(--muted); font-size:13px; margin-top:2px}
+    async function fetchNewIncomingLamports(treasuryPk, cache){
+      const limit = CONFIG.SIG_PAGE_SIZE;
+      let before = undefined;
+      let processed = 0;
 
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px; border-radius:999px;
-      border:1px solid rgba(0,245,255,.22);
-      background: rgba(0,245,255,.06);
-      box-shadow: 0 0 0 1px rgba(255,77,255,.08) inset;
-      font-size:12px; color: rgba(234,246,255,.92);
-      user-select:none;
-    }
-    .dot{
-      width:8px; height:8px; border-radius:999px;
-      background: var(--lime);
-      box-shadow: 0 0 14px rgba(52,255,139,.75);
-      animation:pulse 1.3s infinite;
-    }
-    @keyframes pulse{
-      0%{transform:scale(.95); opacity:.9}
-      50%{transform:scale(1.15); opacity:1}
-      100%{transform:scale(.95); opacity:.9}
+      while (processed < CONFIG.MAX_NEW_SIGS_PER_REFRESH) {
+        const sigs = await withRpcFailover(() =>
+          connection.getSignaturesForAddress(treasuryPk, { limit, before }, "confirmed")
+        );
+        if (!sigs || sigs.length === 0) break;
+
+        for (const s of sigs) {
+          const sig = s.signature;
+          if (cache.seen[sig]) return;
+
+          cache.seen[sig] = 1;
+          processed++;
+
+          const tx = await withRpcFailover(() =>
+            connection.getTransaction(sig, { commitment:"confirmed", maxSupportedTransactionVersion: 0 })
+          );
+          if (!tx || !tx.meta) continue;
+
+          const msg = tx.transaction.message;
+          const keys = (msg.getAccountKeys && msg.getAccountKeys().staticAccountKeys)
+            ? msg.getAccountKeys().staticAccountKeys
+            : msg.accountKeys;
+
+          const keyStrings = keys.map(k => k.toString());
+          const idx = keyStrings.indexOf(treasuryPk.toString());
+          if (idx === -1) continue;
+
+          const pre = tx.meta.preBalances?.[idx] ?? 0;
+          const post = tx.meta.postBalances?.[idx] ?? 0;
+          const delta = post - pre;
+
+          if (delta > 0) cache.totalLamports += delta;
+
+          if (processed >= CONFIG.MAX_NEW_SIGS_PER_REFRESH) break;
+        }
+
+        before = sigs[sigs.length - 1].signature;
+        if (sigs.length < limit) break;
+      }
     }
 
-    .grid{display:grid; grid-template-columns: 1.2fr .8fr; gap:18px; align-items:start}
-    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+    let refreshLock = false;
 
-    .card{
-      background:var(--card);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow: var(--shadow);
-      padding:22px;
-      backdrop-filter: blur(10px);
+    async function refreshRaised(showStatus){
+      if (refreshLock) return;
+      refreshLock = true;
+
+      const cache = loadCache();
+      const treasuryPk = new PublicKey(CONFIG.TREASURY_ADDRESS);
+
+      try{
+        if (showStatus) setStatus("Refreshing on-chain progress…");
+        await fetchNewIncomingLamports(treasuryPk, cache);
+
+        cache.lastUpdated = Date.now();
+        saveCache(cache);
+
+        const raisedSol = cache.totalLamports / LAMPORTS_PER_SOL;
+        updateAllUI(raisedSol);
+
+        if (showStatus) setStatus("Updated ✅");
+      }catch(e){
+        if (showStatus) setStatus("Refresh unavailable (RPC). Try later.");
+      }finally{
+        refreshLock = false;
+      }
     }
 
-    h1{margin:0 0 8px; font-size:46px; line-height:1.02; text-shadow: 0 0 22px rgba(0,245,255,.18)}
-    .lead{margin:0 0 14px; color:var(--muted); font-size:16px; line-height:1.5}
-    .badges{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 14px}
-    .badge{
-      font-size:12px; padding:7px 10px; border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color: rgba(234,246,255,.9);
-    }
-    .badge.glow{
-      border-color: rgba(0,245,255,.26);
-      background: rgba(0,245,255,.07);
-      box-shadow: 0 0 18px rgba(0,245,255,.12);
-    }
+    btnRefresh.addEventListener("click", () => refreshRaised(true));
 
-    .progress{
-      margin-top:14px; padding:14px; border-radius:16px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.22);
-    }
-    .progressTop{display:flex; justify-content:space-between; gap:10px; margin-bottom:10px; font-size:13px}
-    .bar{height:12px; border-radius:999px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.10); overflow:hidden}
-    .barFill{
-      height:100%;
-      width:0%;
-      background: linear-gradient(90deg, var(--lime), var(--neon), var(--neon2));
+    // init
+    updateAllUI(0);
+    refreshRaised(false);
+    setInterval(() => refreshRaised(false), CONFIG.AUTO_REFRESH_MS);
+    setInterval(updateCountdownUI, 1000);
+  </script>
+</body>
+</html>
