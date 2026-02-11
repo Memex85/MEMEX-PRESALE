@@ -194,6 +194,12 @@
       padding:3px 8px; border-radius:10px;
       white-space:nowrap;
     }
+    .quickHint{
+      margin-top:8px;
+      font-size:12px;
+      color: var(--muted);
+      line-height:1.4;
+    }
     footer{margin-top:18px; text-align:center; color:var(--muted); font-size:12px; padding:10px 0;}
   </style>
 </head>
@@ -296,8 +302,21 @@
             <button id="btnDisconnect" class="ghost" disabled>DISCONNECT</button>
           </div>
 
+          <!-- ✅ QUICK BUTTONS (max 5 SOL) -->
+          <label class="lbl">Quick Amount</label>
+          <div class="btnRow" style="margin-top:6px;">
+            <button type="button" class="ghost" data-amt="0.2">0.2</button>
+            <button type="button" class="ghost" data-amt="0.5">0.5</button>
+            <button type="button" class="ghost" data-amt="1">1</button>
+          </div>
+          <div class="btnRow" style="margin-top:8px;">
+            <button type="button" class="ghost" data-amt="2">2</button>
+            <button type="button" class="ghost" data-amt="5">5</button>
+          </div>
+
           <label class="lbl">Amount (SOL) — min 0.2</label>
-          <input id="amount" placeholder="e.g. 0.5" inputmode="decimal" />
+          <input id="amount" placeholder="e.g. 0.5 (you can use 0,5 too)" inputmode="decimal" />
+          <div class="quickHint">Tip: You can enter comma or dot (0,5 or 0.5). Higher amounts are allowed.</div>
 
           <div class="btnRow">
             <button id="btnSend" class="primary">SEND SOL</button>
@@ -331,11 +350,18 @@
 
   <script>
     // ======================
-    // CONFIG
+    // CONFIG (UPDATED)
     // ======================
     const CONFIG = {
       TREASURY_ADDRESS: "FBZQZgu2bkbFv3Fjgkoyjh1ZWToCxRrjSk2joFmrMAb9",
-      RPC: "https://api.mainnet-beta.solana.com",
+
+      // ✅ RPC fallback list (fix 403)
+      RPC_LIST: [
+        "https://rpc.ankr.com/solana",
+        "https://solana.public-rpc.com",
+        "https://api.mainnet-beta.solana.com"
+      ],
+
       MIN_SOL: 0.2,
 
       // Phase caps:
@@ -390,11 +416,35 @@
     function setWalletInfo(msg){ walletInfoEl.textContent = msg; }
     function shortAddr(a){ return a.slice(0,4) + "..." + a.slice(-4); }
 
+    // ✅ robust input parsing (comma or dot)
+    function parseSolInput(v){
+      const s = String(v || "")
+        .trim()
+        .replace(/\s+/g,"")
+        .replace(",", ".");
+      return Number(s);
+    }
+
+    // ✅ quick amount buttons
+    document.querySelectorAll("button[data-amt]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        amountEl.value = btn.getAttribute("data-amt");
+        setStatus("Amount set: " + amountEl.value + " SOL");
+      });
+    });
+
     // ======================
-    // Solana / Phantom
+    // Solana / Phantom + RPC fallback
     // ======================
     const { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } = solanaWeb3;
-    const connection = new Connection(CONFIG.RPC, "confirmed");
+
+    let rpcIndex = 0;
+    let connection = new Connection(CONFIG.RPC_LIST[rpcIndex], "confirmed");
+
+    function rotateRpc(){
+      rpcIndex = (rpcIndex + 1) % CONFIG.RPC_LIST.length;
+      connection = new Connection(CONFIG.RPC_LIST[rpcIndex], "confirmed");
+    }
 
     function getProvider(){
       if ("solana" in window) {
@@ -450,16 +500,24 @@
       }
     });
 
+    // ✅ MAX with RPC rotate on 403
     btnMax.addEventListener("click", async () => {
       if (!walletPublicKey) { setStatus("Connect wallet first."); return; }
       try{
         const bal = await connection.getBalance(walletPublicKey, "confirmed");
         const sol = bal / LAMPORTS_PER_SOL;
         const max = Math.max(0, sol - 0.00005); // fee buffer
+        // keep it user-friendly: show 4 decimals (still allows comma input if they edit)
         amountEl.value = max.toFixed(4);
         setStatus("Max amount filled (fee reserved).");
       }catch(e){
-        setStatus("Could not fetch balance: " + (e?.message || "unknown"));
+        const msg = String(e?.message || e || "");
+        if (msg.includes("403") || msg.toLowerCase().includes("forbidden")) {
+          rotateRpc();
+          setStatus("RPC switched (403). Tap MAX again.");
+        } else {
+          setStatus("Could not fetch balance: " + (e?.message || "unknown"));
+        }
       }
     });
 
@@ -468,7 +526,7 @@
       if (!provider) { setStatus("Phantom not found."); return; }
       if (!walletPublicKey) { setStatus("Connect your wallet first."); return; }
 
-      const amt = Number(String(amountEl.value).replace(",", "."));
+      const amt = parseSolInput(amountEl.value);
       if (!amt || amt <= 0) { setStatus("Enter a valid SOL amount."); return; }
       if (amt < CONFIG.MIN_SOL) { setStatus("Min buy is " + CONFIG.MIN_SOL + " SOL."); return; }
 
@@ -503,7 +561,13 @@
         setStatus("Confirmed ✅ TX: " + sig + " (save this)");
         await refreshRaised(true);
       }catch(e){
-        setStatus("Error: " + (e?.message || "unknown"));
+        const msg = String(e?.message || e || "");
+        if (msg.includes("403") || msg.toLowerCase().includes("forbidden")) {
+          rotateRpc();
+          setStatus("RPC switched (403). Try again.");
+        } else {
+          setStatus("Error: " + (e?.message || "unknown"));
+        }
       }
     });
 
@@ -537,7 +601,7 @@
     function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
 
     function ensurePhase3Start(raisedSol){
-      if (raisedSol < (CONFIG.P1_CAP + CONFIG.P2_CAP)) return; // not in phase 3 yet
+      if (raisedSol < (CONFIG.P1_CAP + CONFIG.P2_CAP)) return;
       const existing = localStorage.getItem(PHASE3_START_KEY);
       if (existing) return;
       localStorage.setItem(PHASE3_START_KEY, String(Date.now()));
@@ -573,7 +637,6 @@
       phaseRateEl.textContent = ph.rate;
       phaseInfoEl.textContent = ph.info;
 
-      // phase-progress computation
       const inPhase = clamp(raisedSol - ph.base, 0, ph.cap);
       const pct = ph.cap > 0 ? Math.floor((inPhase / ph.cap) * 100) : 0;
 
@@ -584,7 +647,6 @@
 
       barFill.style.width = pct + "%";
 
-      // Phase 3 timer
       ensurePhase3Start(raisedSol);
       updateCountdownUI();
     }
@@ -624,9 +686,8 @@
         for (const s of sigs) {
           const sig = s.signature;
 
-          if (cache.seen[sig]) {
-            return; // stop when we hit already-known
-          }
+          if (cache.seen[sig]) return;
+
           cache.seen[sig] = 1;
           processed++;
 
@@ -680,7 +741,13 @@
 
         if (showStatus) setStatus("Updated ✅");
       }catch(e){
-        if (showStatus) setStatus("Refresh error: " + (e?.message || "unknown"));
+        const msg = String(e?.message || e || "");
+        if (msg.includes("403") || msg.toLowerCase().includes("forbidden")) {
+          rotateRpc();
+          if (showStatus) setStatus("RPC switched (403). Refresh again.");
+        } else {
+          if (showStatus) setStatus("Refresh error: " + (e?.message || "unknown"));
+        }
       }finally{
         refreshLock = false;
       }
