@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MEMEX Presale</title>
+
+  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+
+  <style>
+    :root{
+      --bg0:#05060b; --bg1:#081426;
+      --card:rgba(10,16,30,.72);
+      --stroke:rgba(120,220,255,.16);
+      --neon:#00f5ff; --neon2:#ff4dff;
+      --lime:#34ff8b; --gold:#ffd166;
+      --text:#eaf6ff; --muted:rgba(234,246,255,.72);
+      --shadow: 0 18px 60px rgba(0,0,0,.55);
+      --radius:18px;
+      --danger:#ff4dff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(900px 520px at 20% 20%, rgba(0,245,255,.14), transparent 55%),
+        radial-gradient(900px 520px at 80% 10%, rgba(255,77,255,.12), transparent 55%),
+        radial-gradient(1000px 650px at 50% 90%, rgba(52,255,139,.10), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow-x:hidden;
+    }
+    .wrap{max-width:1120px; margin:22px auto 70px; padding:0 16px}
+    .topbar{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:18px}
+    .brand{display:flex; align-items:center; gap:12px}
+    .logo{
+      width:44px; height:44px; border-radius:999px;
+      background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.35), rgba(0,245,255,.22) 30%, rgba(255,77,255,.18) 65%, rgba(0,0,0,.2));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow: 0 0 0 1px rgba(0,245,255,.10), 0 12px 30px rgba(0,0,0,.45);
+      overflow:hidden; display:grid; place-items:center; font-weight:950;
+    }
+    .name{font-weight:950; letter-spacing:.08em}
+    .tag{color:var(--muted); font-size:13px; margin-top:2px}
+
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 12px; border-radius:999px;
+      border:1px solid rgba(0,245,255,.22);
+      background: rgba(0,245,255,.06);
+      box-shadow: 0 0 0 1px rgba(255,77,255,.08) inset;
+      font-size:12px; color: rgba(234,246,255,.92);
+      user-select:none;
+    }
+    .dot{
+      width:8px; height:8px; border-radius:999px;
+      background: var(--lime);
+      box-shadow: 0 0 14px rgba(52,255,139,.75);
+      animation:pulse 1.3s infinite;
+    }
+    @keyframes pulse{
+      0%{transform:scale(.95); opacity:.9}
+      50%{transform:scale(1.15); opacity:1}
+      100%{transform:scale(.95); opacity:.9}
+    }
+
+    .grid{display:grid; grid-template-columns: 1.2fr .8fr; gap:18px; align-items:start}
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      padding:22px;
+      backdrop-filter: blur(10px);
+    }
+
+    h1{margin:0 0 8px; font-size:46px; line-height:1.02; text-shadow: 0 0 22px rgba(0,245,255,.18)}
+    .lead{margin:0 0 14px; color:var(--muted); font-size:16px; line-height:1.5}
+    .badges{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 14px}
+    .badge{
+      font-size:12px; padding:7px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: rgba(234,246,255,.9);
+    }
+    .badge.glow{
+      border-color: rgba(0,245,255,.26);
+      background: rgba(0,245,255,.07);
+      box-shadow: 0 0 18px rgba(0,245,255,.12);
+    }
+
+    .progress{
+      margin-top:14px; padding:14px; border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+    }
+    .progressTop{display:flex; justify-content:space-between; gap:10px; margin-bottom:10px; font-size:13px}
+    .bar{height:12px; border-radius:999px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.10); overflow:hidden}
+    .barFill{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, var(--lime), var(--neon), var(--neon2));
+      box-shadow: 0 0 22px rgba(0,245,255,.20);
+      transition: width .35s ease;
+    }
+    .tiny{margin-top:10px; font-size:12px; color:var(--muted); line-height:1.4}
+
+    .box{
+      background: rgba(0,0,0,.26);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      padding:16px;
+    }
+    .lbl{display:block; margin:10px 0 6px; color:var(--muted); font-size:13px}
+
+    input{
+      width:100%;
+      padding:12px 12px;
+      border-radius:12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(8,10,18,.55);
+      color: var(--text);
+      outline:none;
+      font-size:16px;
+    }
+    input:focus{border-color: rgba(0,245,255,.25)}
+
+    button{
+      cursor:pointer;
+      border-radius:12px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      color: rgba(234,246,255,.94);
+      padding:12px 14px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    button:hover{border-color: rgba(0,245,255,.25)}
+    .primary{
+      border:none;
+      background: linear-gradient(90deg, var(--neon), var(--neon2));
+      color:#07101b;
+      box-shadow: 0 12px 30px rgba(0,245,255,.12);
+    }
+    .primary:hover{filter: brightness(1.06)}
+    .ghost{border-color: rgba(52,255,139,.26); background: rgba(52,255,139,.06)}
+    .danger{border-color: rgba(255,77,255,.26); background: rgba(255,77,255,.06)}
+    .btnRow{display:flex; gap:10px; margin-top:12px}
+    .btnRow button{flex:1}
+    @media (max-width:420px){ .btnRow{flex-direction:column} }
+
+    .divider{height:1px; background: rgba(255,255,255,.12); margin:14px 0}
+    .status{margin-top:12px; font-size:13px; color:var(--muted); min-height:18px; word-break:break-word}
+    .warn{margin-top:12px; font-size:12px; color: rgba(234,246,255,.70); line-height:1.5}
+    .em{color: rgba(234,246,255,.92); font-weight:900;}
+
+    .phaseLine{
+      padding:12px 14px; border-radius:14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+      margin-top:10px;
+    }
+    .rate{
+      background: linear-gradient(90deg, var(--gold), var(--neon));
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      font-weight:950;
+    }
+    .phaseBox{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(0,245,255,.22);
+      background: rgba(0,245,255,.06);
+      box-shadow: 0 0 18px rgba(0,245,255,.10);
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+      font-size:13px;
+    }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size:12px;
+      color: rgba(234,246,255,.86);
+      background: rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.12);
+      padding:3px 8px; border-radius:10px;
+      white-space:nowrap;
+    }
+    .quickHint{
+      margin-top:8px;
+      font-size:12px;
+      color: var(--muted);
+      line-height:1.4;
+    }
+
+    footer{margin-top:18px; text-align:center; color:var(--muted); font-size:12px; padding:10px 0;}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo" title="MEMEX">M</div>
+        <div>
+          <div class="name">MEMEX</div>
+          <div class="tag">Presale DApp • Solana • No Mint • No Freeze</div>
+        </div>
+      </div>
+      <div class="pill"><span class="dot"></span> LIVE ON-CHAIN</div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h1>MEMEX Presale</h1>
+        <p class="lead">
+          Connect Phantom and send SOL to join. <span class="em">Min buy: 0.2 SOL</span>.
+          Progress is tracked per phase: Phase 1 (10), Phase 2 (20), Phase 3 (150).
+        </p>
+
+        <div class="badges">
+          <span class="badge glow">Wallet Connect</span>
+          <span class="badge">Phase Progress</span>
+          <span class="badge">Phase 3 = 7 days max</span>
+          <span class="badge">Unsold tokens burned</span>
+        </div>
+
+        <div class="progress">
+          <div class="progressTop">
+            <div><span id="progressTitle">Phase Progress</span></div>
+            <div><span id="progressLeft">0.00</span> / <span id="progressCap">10</span> SOL (<span id="progressPct">0</span>%)</div>
+          </div>
+          <div class="bar"><div id="barFill" class="barFill"></div></div>
+          <div class="tiny">
+            Total raised (all phases): <span class="em"><span id="raisedTotal">0.00</span> SOL</span> • Calculated from incoming on-chain transfers.
+          </div>
+        </div>
+
+        <div class="phaseBox">
+          <div>
+            <div style="font-weight:950;">Current Phase: <span id="phaseName">—</span></div>
+            <div class="tiny">Rate: <span class="rate" id="phaseRate">—</span></div>
+          </div>
+          <div class="kbd" id="phaseInfo">—</div>
+        </div>
+
+        <div class="phaseBox" id="phase3TimerBox" style="display:none; border-color: rgba(255,77,255,.26); background: rgba(255,77,255,.06);">
+          <div>
+            <div style="font-weight:950;">Phase 3 Timer</div>
+            <div class="tiny">Phase 3 ends in: <span class="em" id="phase3Countdown">—</span></div>
+          </div>
+          <div class="kbd">max 7 days</div>
+        </div>
+
+        <div class="phaseLine">
+          <div><b>Phase 1</b> • First 10 SOL</div>
+          <div class="rate">1 SOL = 8,000,000 MEMEX</div>
+        </div>
+        <div class="phaseLine">
+          <div><b>Phase 2</b> • Next 20 SOL (10–30)</div>
+          <div class="rate">1 SOL = 6,000,000 MEMEX</div>
+        </div>
+        <div class="phaseLine">
+          <div><b>Phase 3</b> • Next 150 SOL (30–180) • 7 days max</div>
+          <div class="rate">1 SOL = 4,000,000 MEMEX</div>
+        </div>
+
+        <div class="warn">
+          We will <span class="em">NEVER</span> DM you first. Always verify you are on the official link.
+        </div>
+      </section>
+
+      <aside class="card">
+        <div class="box">
+          <h3 style="margin:0 0 6px;">Buy / Join Presale</h3>
+          <div class="tiny">This page works best inside Phantom Browser.</div>
+
+          <div class="btnRow">
+            <button id="btnRefresh" class="danger">REFRESH</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="btnRow">
+            <button id="btnConnect" class="primary">CONNECT PHANTOM</button>
+            <button id="btnDisconnect" class="ghost" disabled>DISCONNECT</button>
+          </div>
+
+          <label class="lbl">Quick Amount</label>
+          <div class="btnRow" style="margin-top:6px;">
+            <button type="button" class="ghost" data-amt="0.2">0.2</button>
+            <button type="button" class="ghost" data-amt="0.5">0.5</button>
+            <button type="button" class="ghost" data-amt="1">1</button>
+          </div>
+
+          <label class="lbl">Amount (SOL) — min 0.2</label>
+          <input id="amount" placeholder="e.g. 0.5 (you can use 0,5 too)" inputmode="decimal" />
+          <div class="quickHint">Tip: You can enter comma or dot (0,5 or 0.5). Higher amounts are allowed.</div>
+
+          <div class="btnRow">
+            <button id="btnSend" class="primary">SEND SOL</button>
+            <button id="btnMax" class="ghost">MAX</button>
+          </div>
+
+          <div id="walletInfo" class="status"></div>
+          <div id="status" class="status"></div>
+
+          <div class="divider"></div>
+
+          <div class="warn">
+            Tokens will be distributed at launch to the same wallet that paid. Save your TXID after sending.
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <h3 style="margin:0 0 6px;">Token Rules</h3>
+          <ul style="margin:10px 0 0; padding-left:18px; color:var(--muted); line-height:1.6;">
+            <li>90% of total supply sold in presale</li>
+            <li>90% of sold tokens go to LP and will be locked</li>
+            <li>Unsold presale tokens will be burned</li>
+            <li>No mint • No freeze</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+
+    <footer>© <span id="year"></span> MEMEX — community-driven.</footer>
+  </div>
+
+  <script>
+    const CONFIG = {
+      TREASURY_ADDRESS: "FBZQZgu2bkbFv3Fjgkoyjh1ZWToCxRrjSk2joFmrMAb9",
+
+      // ✅ RPC: Alchemy first + safe fallbacks
+      RPC_LIST: [
+        "https://solana-mainnet.g.alchemy.com/v2/uenOkKWZ9SOxMAXUPWvin",
+        "https://api.mainnet-beta.solana.com",
+        "https://rpc.ankr.com/solana"
+      ],
+
+      MIN_SOL: 0.2,
+
+      P1_CAP: 10,
+      P2_CAP: 20,
+      P3_CAP: 150,
+
+      // ✅ Make RPC load lighter (prevents 403/429 blocks)
+      AUTO_REFRESH_MS: 60000,          // was 25000
+      SIG_PAGE_SIZE: 50,              // was 100
+      MAX_NEW_SIGS_PER_REFRESH: 80,   // was 250
+
+      PHASE3_DURATION_MS: 7 * 24 * 60 * 60 * 1000
+    };
+
+    const yearEl = document.getElementById("year");
+    const btnRefresh = document.getElementById("btnRefresh");
+    const btnConnect = document.getElementById("btnConnect");
+    const btnDisconnect = document.getElementById("btnDisconnect");
+    const btnSend = document.getElementById("btnSend");
+    const btnMax = document.getElementById("btnMax");
+
+    const amountEl = document.getElementById("amount");
+    const statusEl = document.getElementById("status");
+    const walletInfoEl = document.getElementById("walletInfo");
+
+    const barFill = document.getElementById("barFill");
+    const raisedTotalEl = document.getElementById("raisedTotal");
+
+    const progressTitleEl = document.getElementById("progressTitle");
+    const progressLeftEl = document.getElementById("progressLeft");
+    const progressCapEl = document.getElementById("progressCap");
+    const progressPctEl = document.getElementById("progressPct");
+
+    const phaseNameEl = document.getElementById("phaseName");
+    const phaseRateEl = document.getElementById("phaseRate");
+    const phaseInfoEl = document.getElementById("phaseInfo");
+
+    const phase3TimerBox = document.getElementById("phase3TimerBox");
+    const phase3CountdownEl = document.getElementById("phase3Countdown");
+
+    yearEl.textContent = new Date().getFullYear();
+
+    function setStatus(msg){ statusEl.textContent = msg; }
+    function setWalletInfo(msg){ walletInfoEl.textContent = msg; }
+    function shortAddr(a){ return a.slice(0,4) + "..." + a.slice(-4); }
+
+    function parseSolInput(v){
+      const s = String(v || "").trim().replace(/\s+/g,"").replace(",", ".");
+      return Number(s);
+    }
+
+    document.querySelectorAll("button[data-amt]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        amountEl.value = btn.getAttribute("data-amt");
+        setStatus("Amount set: " + amountEl.value + " SOL");
+      });
+    });
+
+    const { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } = solanaWeb3;
+
+    let rpcIndex = 0;
+    let connection = new Connection(CONFIG.RPC_LIST[rpcIndex], "confirmed");
+
+    function rotateRpc(){
+      rpcIndex = (rpcIndex + 1) % CONFIG.RPC_LIST.length;
+      connection = new Connection(CONFIG.RPC_LIST[rpcIndex], "confirmed");
+    }
+
+    function isRpcNetworkError(e){
+      const msg = String(e?.message || e || "").toLowerCase();
+      return (
+        msg.includes("403") ||
+        msg.includes("429") ||               // ✅ rate-limit
+        msg.includes("too many requests") || // ✅ rate-limit
+        msg.includes("forbidden") ||
+        msg.includes("load failed") ||
+        msg.includes("failed to fetch") ||
+        msg.includes("networkerror") ||
+        msg.includes("timeout")
+      );
+    }
+
+    async function withRpcFailover(fn, tries = CONFIG.RPC_LIST.length){
+      let lastErr = null;
+      for (let i = 0; i < tries; i++){
+        try{
+          return await fn();
+        }catch(e){
+          lastErr = e;
+          if (isRpcNetworkError(e)) { rotateRpc(); continue; }
+          throw e;
+        }
+      }
+      throw lastErr || new Error("RPC failed");
+    }
+
+    function getProvider(){
+      if ("solana" in window) {
+        const p = window.solana;
+        if (p?.isPhantom) return p;
+      }
+      return null;
+    }
+
+    let provider = null;
+    let walletPublicKey = null;
+
+    async function connectWallet(){
+      provider = getProvider();
+      if (!provider) {
+        setStatus("Phantom not found. Open this page inside Phantom Browser.");
+        return;
+      }
+      try{
+        const resp = await provider.connect();
+        walletPublicKey = resp.publicKey;
+        btnDisconnect.disabled = false;
+        setWalletInfo("Connected: " + shortAddr(walletPublicKey.toString()));
+        setStatus("Wallet connected ✅");
+      }catch{
+        setStatus("Connect cancelled.");
+      }
+    }
+
+    async function disconnectWallet(){
+      try{ if (provider) await provider.disconnect(); }catch{}
+      walletPublicKey = null;
+      btnDisconnect.disabled = true;
+      setWalletInfo("");
+      setStatus("Disconnected.");
+    }
+
+    btnConnect.addEventListener("click", connectWallet);
+    btnDisconnect.addEventListener("click", disconnectWallet);
+
+    btnMax.addEventListener("click", async () => {
+      if (!walletPublicKey) { setStatus("Connect wallet first."); return; }
+      try{
+        const bal = await withRpcFailover(() => connection.getBalance(walletPublicKey, "confirmed"));
+        const sol = bal / LAMPORTS_PER_SOL;
+        const max = Math.max(0, sol - 0.00005);
+        amountEl.value = max.toFixed(4);
+        setStatus("Max filled (fee reserved).");
+      }catch{
+        setStatus("MAX unavailable (RPC issue). Enter amount manually.");
+      }
+    });
+
+    // ✅ SEND (most compatible): signTransaction + sendRawTransaction
+    btnSend.addEventListener("click", async () => {
+      provider = getProvider();
+      if (!provider) { setStatus("Phantom not found. Open in Phantom Browser."); return; }
+      if (!walletPublicKey) { setStatus("Connect your wallet first."); return; }
+
+      const amt = parseSolInput(amountEl.value);
+      if (!amt || amt <= 0) { setStatus("Enter a valid SOL amount."); return; }
+      if (amt < CONFIG.MIN_SOL) { setStatus("Min buy is " + CONFIG.MIN_SOL + " SOL."); return; }
+
+      try{
+        const toPubkey = new PublicKey(CONFIG.TREASURY_ADDRESS);
+        const lamports = Math.round(amt * LAMPORTS_PER_SOL);
+
+        const tx = new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey: walletPublicKey,
+            toPubkey,
+            lamports
+          })
+        );
+
+        tx.feePayer = walletPublicKey;
+
+        const { blockhash, lastValidBlockHeight } = await withRpcFailover(() =>
+          connection.getLatestBlockhash("finalized")
+        );
+        tx.recentBlockhash = blockhash;
+
+        setStatus("Approve in Phantom…");
+
+        const signed = await provider.signTransaction(tx);
+
+        const sig = await withRpcFailover(() =>
+          connection.sendRawTransaction(signed.serialize(), { skipPreflight: false })
+        );
+
+        setStatus("Sent ✅ TX: " + sig + " (confirming…)");
+
+        await withRpcFailover(() =>
+          connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed")
+        );
+
+        setStatus("Confirmed ✅ TX: " + sig + " (save this)");
+
+        try{ await refreshRaised(false); }catch{}
+      }catch(e){
+        const msg = String(e?.message || e || "");
+        if (msg.toLowerCase().includes("user rejected") || msg.toLowerCase().includes("rejected")) {
+          setStatus("Transaction cancelled.");
+          return;
+        }
+        setStatus("Send error: " + (e?.message || "unknown"));
+      }
+    });
+
+    (async () => {
+      provider = getProvider();
+      if (provider && provider.isPhantom) {
+        try{
+          const resp = await provider.connect({ onlyIfTrusted: true });
+          walletPublicKey = resp.publicKey;
+          btnDisconnect.disabled = false;
+          setWalletInfo("Connected: " + shortAddr(walletPublicKey.toString()));
+        }catch{}
+      }
+    })();
+
+    const PHASE3_START_KEY = "memex_phase3_start_ms_v1";
+
+    function getPhase(raisedSol){
+      if (raisedSol < CONFIG.P1_CAP) {
+        return { n:1, name:"Phase 1", rate:"1 SOL = 8,000,000 MEMEX", cap:CONFIG.P1_CAP, base:0, info:"0–10 SOL" };
+      }
+      if (raisedSol < (CONFIG.P1_CAP + CONFIG.P2_CAP)) {
+        return { n:2, name:"Phase 2", rate:"1 SOL = 6,000,000 MEMEX", cap:CONFIG.P2_CAP, base:CONFIG.P1_CAP, info:"10–30 SOL" };
+      }
+      return { n:3, name:"Phase 3", rate:"1 SOL = 4,000,000 MEMEX", cap:CONFIG.P3_CAP, base:(CONFIG.P1_CAP + CONFIG.P2_CAP), info:"30–180 SOL • 7d max" };
+    }
+
+    function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+    function ensurePhase3Start(raisedSol){
+      if (raisedSol < (CONFIG.P1_CAP + CONFIG.P2_CAP)) return;
+      const existing = localStorage.getItem(PHASE3_START_KEY);
+      if (existing) return;
+      localStorage.setItem(PHASE3_START_KEY, String(Date.now()));
+    }
+
+    function formatCountdown(ms){
+      ms = Math.max(0, ms);
+      const totalSec = Math.floor(ms / 1000);
+      const d = Math.floor(totalSec / 86400);
+      const h = Math.floor((totalSec % 86400) / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      return `${d}d ${String(h).padStart(2,"0")}h ${String(m).padStart(2,"0")}m ${String(s).padStart(2,"0")}s`;
+    }
+
+    function updateCountdownUI(){
+      const startRaw = localStorage.getItem(PHASE3_START_KEY);
+      if (!startRaw) { phase3TimerBox.style.display = "none"; return; }
+      const start = Number(startRaw);
+      if (!start || !isFinite(start)) { phase3TimerBox.style.display = "none"; return; }
+
+      const end = start + CONFIG.PHASE3_DURATION_MS;
+      const left = end - Date.now();
+      phase3TimerBox.style.display = "flex";
+      phase3CountdownEl.textContent = formatCountdown(left);
+    }
+
+    function updateAllUI(raisedSol){
+      raisedTotalEl.textContent = Number(raisedSol).toFixed(2);
+
+      const ph = getPhase(raisedSol);
+      phaseNameEl.textContent = ph.name;
+      phaseRateEl.textContent = ph.rate;
+      phaseInfoEl.textContent = ph.info;
+
+      const inPhase = clamp(raisedSol - ph.base, 0, ph.cap);
+      const pct = ph.cap > 0 ? Math.floor((inPhase / ph.cap) * 100) : 0;
+
+      progressTitleEl.textContent = `${ph.name} Progress`;
+      progressLeftEl.textContent = inPhase.toFixed(2);
+      progressCapEl.textContent = ph.cap;
+      progressPctEl.textContent = pct;
+
+      barFill.style.width = pct + "%";
+
+      ensurePhase3Start(raisedSol);
+      updateCountdownUI();
+    }
+
+    const CACHE_KEY = "memex_presale_cache_v5";
+
+    function loadCache(){
+      try{
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return { totalLamports: 0, seen: {}, lastUpdated: 0 };
+        const obj = JSON.parse(raw);
+        if (!obj || typeof obj.totalLamports !== "number") throw new Error("bad");
+        obj.seen = obj.seen || {};
+        return obj;
+      }catch{
+        return { totalLamports: 0, seen: {}, lastUpdated: 0 };
+      }
+    }
+    function saveCache(c){ localStorage.setItem(CACHE_KEY, JSON.stringify(c)); }
+
+    async function fetchNewIncomingLamports(treasuryPk, cache){
+      const limit = CONFIG.SIG_PAGE_SIZE;
+      let before = undefined;
+      let processed = 0;
+
+      while (processed < CONFIG.MAX_NEW_SIGS_PER_REFRESH) {
+        const sigs = await withRpcFailover(() =>
+          connection.getSignaturesForAddress(treasuryPk, { limit, before }, "confirmed")
+        );
+        if (!sigs || sigs.length === 0) break;
+
+        for (const s of sigs) {
+          const sig = s.signature;
+
+          // if we've seen this signature before, stop scanning older ones
+          if (cache.seen[sig]) return;
+
+          cache.seen[sig] = 1;
+          processed++;
+
+          const tx = await withRpcFailover(() =>
+            connection.getTransaction(sig, { commitment:"confirmed", maxSupportedTransactionVersion: 0 })
+          );
+          if (!tx || !tx.meta) continue;
+
+          const msg = tx.transaction.message;
+          const keys = (msg.getAccountKeys && msg.getAccountKeys().staticAccountKeys)
+            ? msg.getAccountKeys().staticAccountKeys
+            : msg.accountKeys;
+
+          const keyStrings = keys.map(k => k.toString());
+          const idx = keyStrings.indexOf(treasuryPk.toString());
+          if (idx === -1) continue;
+
+          const pre = tx.meta.preBalances?.[idx] ?? 0;
+          const post = tx.meta.postBalances?.[idx] ?? 0;
+          const delta = post - pre;
+
+          if (delta > 0) cache.totalLamports += delta;
+
+          if (processed >= CONFIG.MAX_NEW_SIGS_PER_REFRESH) break;
+        }
+
+        before = sigs[sigs.length - 1].signature;
+        if (sigs.length < limit) break;
+      }
+    }
+
+    let refreshLock = false;
+
+    async function refreshRaised(showStatus){
+      if (refreshLock) return;
+      refreshLock = true;
+
+      const cache = loadCache();
+      const treasuryPk = new PublicKey(CONFIG.TREASURY_ADDRESS);
+
+      try{
+        if (showStatus) setStatus("Refreshing on-chain progress…");
+        await fetchNewIncomingLamports(treasuryPk, cache);
+
+        cache.lastUpdated = Date.now();
+        saveCache(cache);
+
+        const raisedSol = cache.totalLamports / LAMPORTS_PER_SOL;
+        updateAllUI(raisedSol);
+
+        if (showStatus) setStatus("Updated ✅");
+      }catch(e){
+        if (showStatus) setStatus("Refresh unavailable (RPC). Try later.");
+      }finally{
+        refreshLock = false;
+      }
+    }
+
+    btnRefresh.addEventListener("click", () => refreshRaised(true));
+
+    updateAllUI(0);
+    refreshRaised(false);
+    setInterval(() => refreshRaised(false), CONFIG.AUTO_REFRESH_MS);
+    setInterval(updateCountdownUI, 1000);
+  </script>
+</body>
+</html>
